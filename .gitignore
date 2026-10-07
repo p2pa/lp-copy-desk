@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+# per-install config and state: never committed
+chains/*/chain.toml
+chains/*/rpc.local.toml
+chains/*/var/
+*.db
+*.pkl
+*.log
+wallets*.json
+telegram*.json
+*.token

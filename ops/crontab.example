@@ -1,0 +1,15 @@
+# lp-copy-desk schedule (UTC). Replace /path/to/lp-copy-desk. `crontab -e` and paste what you want.
+# the live desk: restarted within a minute if it dies (touch ops/PAUSE to hold it)
+* * * * * /path/to/lp-copy-desk/ops/supervise.sh
+# the LP history store: new blocks every minute (every replay and the desk's cold-pool / exit-route tables read it)
+* * * * * cd /path/to/lp-copy-desk && flock -n /tmp/lpdesk-hist.lock timeout 290 ./lpdesk hist ingest >> chains/robinhood/var/lp/hist.log 2>&1
+# the living squad, hourly: replay what closed since, pick --apply (quality control inside, at most one bench swap a run)
+20 * * * * cd /path/to/lp-copy-desk && timeout 3300 ./lpdesk repick >> chains/robinhood/var/lp/repick.log 2>&1
+# nightly: discover new LP wallets, replay the whole store at our size and delay, measure gas and take rate, pick --apply
+0 3 * * * cd /path/to/lp-copy-desk && timeout 7000 ./lpdesk nightly >> chains/robinhood/var/lp/nightly.log 2>&1
+# hourly Telegram card of the open copies (silent with none open)
+5 * * * * cd /path/to/lp-copy-desk && ./lpdesk card >> chains/robinhood/var/lp/card.log 2>&1
+# weekly checks: does the wallet score still predict; re-run the blind fold tests behind every desk setting (proposes, never applies)
+25 6 * * 1 cd /path/to/lp-copy-desk && timeout 900 ./lpdesk find calibrate >> chains/robinhood/var/lp/calibrate.log 2>&1
+40 6 * * 1 cd /path/to/lp-copy-desk && timeout 900 ./lpdesk tune --notify >> chains/robinhood/var/lp/tune.log 2>&1
+50 6 * * 1 cd /path/to/lp-copy-desk && timeout 1800 ./lpdesk tune downside --days 7 >> chains/robinhood/var/lp/tune.log 2>&1

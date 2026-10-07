@@ -1,0 +1,221 @@
+# lp-copy-desk configuration for Robinhood Chain (4663). Copy to chains/robinhood/chain.toml (that path is gitignored) and
+# fill in [wallet] and the squad lists. Every knob in [lp.follow] carries the backtest that set it (copydesk/lpopt `lp tune`).
+name = "robinhood"
+chain_id = 4663
+native_dec = 18
+config_dir = "~/.config/lp-copy-desk"          # rpc.url (an optional keyed endpoint), hypersync.token
+tg_config = "~/.config/lp-copy-desk/telegram.json"   # {"token": ..., "chat_id": ...}; absent = no Telegram
+
+[gas]
+token = "eth"
+mode = "dynamic"
+gwei = 0
+eth_usd = 2512.0        # fallback only: the loop re-reads it from eth_usd_pool every 120s
+eth_usd_pool = "0x54f7883914619af9105355bf83ed678bcf9f63560218ac61c9963b9503d0ba32"   # ETH/USDG unhooked, fee 460, $6.9M
+tx_cap = 30000000
+# FCFS: every tx in a 4663 block pays one effective price (56,265 multi-tx blocks, 0 price differences,
+# 2026-09-19). A tip buys no position here; latency does.
+ordering = "fcfs"
+units = 420000
+
+[contracts]
+poolmanager = "0x8366a39cc670b4001a1121b8f6a443a643e40951"
+stateview   = "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b"
+v3_factory  = "0x1f7d7550b1b028f7571e69a784071f0205fd2efa"
+multicall3  = "0xca11bde05977b3631167028862be2a173976ca11"
+weth        = "0x0bd7d308f8e1639fab988df18a8011f41eacad73"
+
+[quotes]
+"0x5fc5360d0400a0fd4f2af552add042d716f1d168" = { sym = "USDG", usd = 1.0, dec = 6 }
+"0x0bd7d308f8e1639fab988df18a8011f41eacad73" = { sym = "WETH", usd = 2512.0, dec = 18 }
+"0x0000000000000000000000000000000000000000" = { sym = "ETH", usd = 2512.0, dec = 18 }
+# LIVE-PRICED QUOTES (core/chain.py quote_pools): 27% of robinhood v4 swaps sat on pairs with none of the above as a side
+# (30 min, 2026-09-25); these were the bases with a deep enough USDG pool to price them. usd = the seed, refreshed live.
+"0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec" = { sym = "NVDA", usd = 225.006, dec = 18, pool = "0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1", vs = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }   # live price: deepest v4 NVDA/USDG, $15.9M (2026-09-25)
+"0x86923f96303d656e4aa86d9d42d1e57ad2023fdc" = { sym = "AMD", usd = 634.272, dec = 18, pool = "0xde9f85fdd9e05a943a52f2c69ffafe3064a3287df03d02c9b431bc92d4781274", vs = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }   # live price: deepest v4 AMD/USDG, $8.3M (2026-09-25)
+"0xc0d6457c16cc70d6790dd43521c899c87ce02f35" = { sym = "META", usd = 751.751, dec = 18, pool = "0x5875d407a42965b0e768c8925cea290e06fa50603ef34fc99eb92a1050e6ae36", vs = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }   # live price: deepest v4 META/USDG, $144.5M (2026-09-25)
+"0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3" = { sym = "ORBIO", usd = 0.0795215, dec = 18, pool = "0xea9f200e13055b82f175f44f592c4c13dd8c9d9320a66487d3c5cd90d68550ef", vs = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }   # live price: deepest v4 ORBIO/USDG, $2.2M (2026-09-25)
+"0x91a2dae9699f0b82540b5886b0d8759c22820ba3" = { sym = "musebook", usd = 0.00013743, dec = 18, pool = "0x93cc54eb4e1928e841cb8b2e488bd82e8d97d56e0aab16cf078ef71c576dcded", vs = "0x5fc5360d0400a0fd4f2af552add042d716f1d168" }   # live price: deepest v4 musebook/USDG, $2.1M (2026-09-25)
+
+[wallet]
+# wallets.json: {"lp-1": {"address": "0x..", "key": "0x.."}} - mode 600, outside the repo. Never commit a key.
+caller = "lp-1"
+file = "~/.config/lp-copy-desk/wallets.json"
+
+[refuel]
+mode = "swap"
+gas_floor = 0.003
+# top up here, well above the send floor: a gasleft gate simulates 30M gas, so at 0.5 gwei it needs 0.015 ETH
+refuel_below = 0.02
+router = "0xcaf681a66d020601342297493863e78c959e5cb2"
+quote_token = "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
+clip_usd = 20.0
+min_bps = 9900
+bad_bps = 9850
+
+[lp]
+# The desk's wallet (a name in [wallet] file) and the Uniswap v4 periphery it mints / exits through on Robinhood Chain.
+wallet = "lp-1"
+positionmanager = "0x58daec3116aae6d93017baaea7749052e8a04fa7"
+permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+universalrouter = "0x8876789976decbfcbbbe364623c63652db8c0904"
+slippage = 0.01              # swap minOut = quote - 1%
+lp_slippage = 0.005          # decrease/mint amount bounds
+
+[lp.follow]
+# THE COPY LP DESK (copydesk/lpfollow.py, `hookbot robinhood lpfollow run`): mirror one leader wallet's Uniswap v4
+# positions at OUR size. Paper unless --go and LIVE_OK=yes. Leader chosen 2026-09-28 from five wallets rebuilt by
+# copydesk/lpwallet.py: 13/14 green days, worst day -$232, the only one whose copy was replayed (+7 s keeps ~87%).
+# 2026-09-29 (owner): three leaders, `lp optimize` of 09-29 05:30 UTC: out of sample +$292 / 6 of 7 green vs +$64 for 0x78a1
+# alone ($25 x 4, $100). Keep rates measured: 0x12c2 98%, 0x1017 71%, 0x78a1 98%. All hours won for each (no [lp.follow.hours])
+# 2026-09-29 afternoon (owner): 0x1017f961 dropped - its ranges lose 87 bps/position to a passive range in the same pools and
+# 16 of our 19 copies of it were gas-only (3.8 min holds). 0x78a1 is the core (+270 bps/position from range placement).
+# 2026-09-29 18:00 (owner): `lp optimize` on the corrected books + replays: 0x0708 + 0x0578 + 0x12c2, out of sample
+# +$258 / 7 of 7 green vs +$156 for 0x12c2 + 0x78a1. 0x78a1's open copies still exit with it (tracked by position).
+leader = []   # written by `./lpdesk pick --apply` (lpopt.pick)
+# pools whose user markout beats their fees (7-day LVR study, 56,691 swaps): CASHED denied; APPSHARE, VAULT x2, SI held
+# until they have more data. Re-rank weekly: >= 3 positions and >= 100 in-range swaps; deny if model and realized are both < 0
+deny_pools = ["0x8833e328b8269074fc56bae19d87c2e15a5a996adb8a20e56f81c859ed394ab0", "0x04ca9a9c23e6035e75855422141935566feca4245c1b428a5553ad8af95ec3a3",
+              "0xdb5180ad0cb3c764bb53b7a5a75b5990faef494ce7a91ff2298ea05400a5ce25", "0x2cca5a4525c1895888283ba7b1dc906ad29315468c887db80bedf789a85801c3",
+              "0xe39189cdf1940dc9fadd4fa317d4cd19d816996bf87f39ac1c34b96b6b908ff2"]
+size_usd = 25.0              # per copy, never the leader's size (owner 2026-09-28: start small)
+max_open = 7                 # 5 -> 7 2026-10-03 (CONCENTRATION below). Before: 2026-09-29 (owner): 4 -> 5; backtest of the 3 leaders: 4 slots skip 36 of 1,275 copies in 14 d, 5 skip 3
+max_deploy_usd = 125.0       # 5 x $25. lp-1: $172.63 USDG after the arc LP desk's $50 came over (Relay, arc tx 0x57779407) + the open copy
+# BENCH (2026-09-29, owner): backups that use spare capital but always leave room for one main copy; a main copy that
+# does not fit closes bench copies first (lpfollow.Follow.room). Picked by `lp pick` on what each ADDS beside the mains.
+bench = []   # written by `./lpdesk pick --apply` (lpopt.pick)
+filler = []   # written by `./lpdesk pick --apply` (lpopt.pick)
+# TOKEN RULES (2026-09-29, owner; lpfollow.Follow.token_block): a token whose last >= cool_n copies inside cool_h hours
+# net below zero cools off until they age out (SI: 11 copies -$16.26, its leader -0.5% on the same positions);
+# deny_tokens = addresses out for good; max_per_token = open copies of one token (0 = off). Backtest on replayed copies
+# (lpopt.knobs, 7 d, picked on days 1-3.5, judged on 3.5-7): cap off + cool 8/24h +$137.47 judged vs +$116.62 at cap 2
+# and +$129.92 with no rules - leaders stack ranges in the token that works, and the cap cut the winners.
+max_per_token = 4           # 2026-09-30 (owner): at live sizing (free/2, 3 tiers) six blind one-day folds: cap 4 +$222.95/day,
+                            # worst day +$40.68 vs off +$199.60 / -$15.80 (3 days better, 1 worse by $7); caps 1-2 cut winning ladders
+# BENCH SIZE (2026-09-30, owner: less idle capital): 48 h at 20% deployed with the 5 slots full 1% of the time, so the
+# limit is copyable positions. Up to bench_n bench wallets, each added only if it adds money beside the mains (bench_pick)
+bench_n = 3                  # 5 -> 3 (owner 2026-10-02): lp tune, 5 blind one-day folds: 3 +$50.34/day worst -$76.55 vs 5 +$28.88 / -$60.26
+# PICK WINDOW 7 -> 10 days (owner 2026-10-04, "why not pick 10 day window?"): lp tune recency, 6 blind days (each day scored only
+# on copies before it): the top 10 by a 10-day score made +$33/day the next day vs +$24 for 7 days (top 5 +$15 vs +$12, top 30
+# +$64 vs +$57), ahead 4 of 6 days, 1 tie, worst day -$18 vs -$42; 13 days the same as 10. The chain store keeps 14 days (lphist)
+pick_days = 10
+                             # (2 +$49.49 / -$77.18, 7 +$22.16, 10 +$14.05); the owner took the mean over the worst day
+                             # Earlier: 2026-09-30 owner: top 5 by copy score - five blind one-day folds: mean +$134.57/day, worst -$5.56 (wider benches: worst -$98 to -$144)
+# LIVING SQUAD (owner 2026-09-30, `lp tune squad`): `lp repick` hourly swaps at most pick_swaps bench wallets a run
+pick_swaps = 1
+# GAS FUNDS ITSELF (2026-09-30, owner): under refuel_below_usd of ETH the desk sells refuel_clip_usd of its USDG for ETH
+# (core/exec/refuel.keep). lp-1 ran dry on 09-30 and every exit was refused; a copy costs ~$0.08 of gas (measured).
+refuel_below_usd = 5.0
+refuel_clip_usd = 10.0
+cool_n = 8
+cool_h = 24.0
+deny_tokens = []
+# CONCENTRATION (owner 2026-10-03, "these drawdowns and losses cannot happen again", after ASTRAL x2 + HOODAGENTS -$216 in an hour):
+# lp tune downside, 9 days, the live desk: 20%/free2/5 slots +$787, worst day -$54, max drawdown $153, worst copy -$68;
+# 15%/free3/7 slots +$834, worst day -$41, max drawdown $73, worst copy -$41 (13%/8: +$748, dd $82; 10%/10: +$460-527, dd $64)
+size_frac = 0.15            # 0.2 -> 0.15 2026-10-03 (CONCENTRATION). Before: 2026-09-29 (owner): each copy = 1/5 of the book (free USDG + open copies at cost); the whole book
+                             # may be deployed. Overrides size_usd / max_deploy_usd, which stay as the fallback.
+min_leader_usd = 75.0        # 100 -> 75 (owner 2026-10-02 evening): with squad agreement + the entry-cost skip live, the $100 floor
+                             # threw away good small copies. 9 days, every live rule: $75 +$166.65/day vs +$145.86, worst day +$50.16
+                             # vs +$25.08, ahead 8 of 9 days, max dd 63 vs 58; $50 +168.08, $25 +164.81, $10 +166.53 agree. Keep the
+                             # launch guard / cool-off / price-flat with it: without them a lower floor had -$25..-43 days, dd 127.
+                             # Earlier: 10 -> 100 (owner 2026-10-02, after a night of copies 2-8x their leader): lp tune downside, 9 days,
+                             # one live-desk run each: $10 +98.06/day worst -137.59 dd 185 | $75 +113.78 / -116.80 6/9 |
+                             # $100 +128.54 / -77.48 dd 151 6/9, wins kept $1,953 vs $1,787 | $125 +120.66 / -78.19 6/9 |
+                             # $150 +139.70 / -0.10 5/9 | $200 +125.93 / +0.59 6/9 (wins $1,561). The replay applies it (v11).
+                             # Earlier: the leader's own position must be at least this. 20 -> 10 (owner 2026-09-30): the replay (v5)
+                             # applies the same floor; 9 days, live+last50: $0 +22.36/day, $5 +19.00, $10 +13.93, $20 +14.04
+poll_s = 1.0                 # 2026-09-29 (owner): 3 -> 1; leader mints come by websocket, the poll is the backstop + exits
+exit_frac = 0.5              # the leader has exited when its liquidity falls under half its peak
+stop_drawdown = 0.30         # of max_deploy_usd, from the realized high-water mark: exit all, write var/lp/follow.STOP
+stop_pause_h = 3              # 2026-10-01 (owner): the stop PAUSES 3 h (copies kept, exit with their leaders), then resumes itself; lp tune downside 9 d: +$83.48/day vs exit-all 2 h +$83.25, 6 h +$79.47
+max_idle_h = 24.0
+# IDLE CAPITAL (2026-09-30, owner): the room rule has three tiers - main > bench > filler (Follow.room). The filler is every
+# other wallet scoring >= filler_min_score $/day at the live copy size (`lp pick` writes it, at most filler_n), copied only
+# into slots nobody above needs, closed first when they do. A copy takes max(size_frac of the book, free / size_free_div).
+# reserve = slots a non-main copy leaves free for a main one. Six blind one-day folds at the live size ($73 of $363), fee
+# dilution measured in (copydesk/lpopt.simulate_tiers): filler >= $10 + free/2 + reserve 0 beat the old rule on 5 of 6 days,
+# +$142.35/day vs +$93.78, worst day -$59.20 vs -$76.57, capital deployed 74% vs 34% (free/3: +$134.35, worst -$69.97).
+# The day it lost (09-28): +$109 vs +$119. `lp tune` re-tests all three every Monday.
+reserve = 0
+size_free_div = 3.0           # 2 -> 3 2026-10-03 (CONCENTRATION)
+filler_min_score = 1.0         # 2026-10-04: now on the LIVE-RULES value (copydesk/lplive: what the desk books copying the wallet, $/day) -
+# no wallet reaches the old $5 there. 10 days, the live squad: none +$259 (worst day -$28); >= $1 (38 wallets) +$402, worst -$12,
+# ahead 8/10; >= $0.5 +$411 / -$10 8/10; >= $2 +$307 4/10, >= $3 +$241 / -$30 (squad agreement 2 h on in each)
+                             # vs $10 +$22.28 / -$59.65, 69%; $2.50 and $7.50 agree; ahead 3 days, behind 1 ($5), 3 identical
+filler_n = 40
+# SQUAD AGREEMENT (owner 2026-10-02): a filler copy only when ANOTHER squad wallet minted the same token in the last
+# filler_consensus_h hours (0 = off). lp tune downside, 9 days, one continuous run with every live rule: +$135.63/day vs
+# +$114.64, worst day +$16.93 vs -$15.91, max drawdown 72 vs 86, ahead 7 of 9 days, more kept on winners ($1,950 vs $1,914);
+# 24 h agrees (+$135.14, 7/9, worst +$11.90). Residual test (research/lpfactor): rank IC +0.121 (t 2.6) on the P&L that
+# activity, volatility and depth leave - twice the cold-pool rule's +0.058. Mains and bench are not affected.
+filler_consensus_h = 2.0
+# ENTRY COST (owner 2026-10-02): a range copy whose own entry swap (its token share, quoted exactly at the base size) would
+# cost more than this share of the copy is skipped (0 = off). lp tune downside, 9 days, every live rule incl. squad agreement:
+# 3% +$140.03/day vs +$130.74, worst day +$22.52 vs -$1.02, max drawdown 57 vs 72, ahead 6 of 9 days, winners kept $1,925
+# vs $1,922; 2% +$139.17 (6/9), 1% +$141.91 (5/9), 0.5% +$138.46 (5/9) - every neighbour agrees.
+max_entry_cost = 0.03
+# QUALITY CONTROL (`lp qc`, owner 2026-09-30): wallets turned down - never main, bench, specialist or filler, whatever they
+# score. 0x71a5 / 0x92f6: trust 0.05 on 3 days; 0xd8fe: trust 0.38; 0x2c78: 60 copies, 71% of its winnings from one token
+# WALLET LIMIT (owner 2026-09-30): at most this many open copies per bench wallet (0 = off; mains never limited). Six
+# blind days at live rules: 2 -> +$196.23/day, worst -$11.39 vs off +$184.46 / -$26.80, 5 of 6 days better; 1 was too
+# tight on good days, 3 no better than off. A filler limit changed nothing (filler rarely holds two), so it stays off.
+# THE SQUAD SHAPE (owner 2026-10-01, research/deskscan + lp tune downside 9 days, one continuous run, live rules): bench and
+# specialists held ~half the capital-hours at a loss. One copy per bench wallet and no quiet-hour specialists: +$81.96/day vs
+# +$64.06 live, ahead 7 of 9 days, worst day -$20.15 vs -$75.26, max drawdown 99 vs 115 (each alone passes too: bench 1
+# +$80.08 / worst -$16.33, no specialists +$72.97 / -$48.46); desk_7d: 6 of 6 shaken runs won. free/1.5 failed (+$39.91)
+bench_per_wallet = 1
+specialists_per_block = 0
+# DYNAMIC SLOTS (owner 2026-10-01, research/sizing.py: 14,354 squad copies, 9 days, price impact + smart exit + the thin-pool skip,
+# every (book, slots) against 5 slots on the backtest bar): from a book of slot_min_book, slots = book / slot_target_usd (each copy
+# ~$65). Target $65 passed at every book from $1,000 to $5,000 (9 of 9), $50 and $80 agree from $1,250; under $1,000 nothing
+# passed, so the desk keeps max_open there. Inert until the book reaches $1,000.
+slot_target_usd = 65
+slot_min_book = 1000
+# THIN POOLS (owner 2026-09-30, `lp tune downside`, 7 days from the history store, twice): skip a copy whose liquidity would be
+# over this share of the pool's active liquidity - 0.5: +$70.44 / +$63.93 a day vs +$47.69 / +$57.24 with none, the same worst
+# day, 5 of 7 days better both runs (the replay's fee share is least reliable there, and our exit sale moves the price most)
+thin_max_share = 0.5
+# COLD POOLS (owner 2026-09-30, research/lpfeat + lp tune downside: +$17-19/day on 9 days, twice, worst day -$4 vs -$31): skip a copy
+# whose pool's last hour of $ volume is a z-score under cold_volz against its own 72 hours (-0.223 = the squad's bottom 30%).
+# var/lp_heat.json: home writes it after every 5-min ingest, the mirror pushes it; a stale table never skips. Remove the key = off.
+cold_volz = -0.223
+# PRICE-FLAT (owner 2026-09-30, lp tune downside: cold OR flat +$110.36/day, worst -$21.99 vs cold alone +$104.27 / -$51.21, 6 of 9 days
+# better, 1 worse): also skip when the pool's 24h std of hourly log price moves is under flat_rv24 (0.031 = the squad's bottom 10%).
+flat_rv24 = 0.031
+# LAUNCH SIZE GUARD (owner 2026-10-01, after a ZIP launch dump tripped the drawdown stop): in a pool created under launch_cap_h hours
+# ago, never copy more than the leader's own position. lp tune downside, 9 days: max drawdown $124 -> $66 for 1.2% of the total.
+launch_cap_h = 1
+# NO LAUNCHES (owner 2026-10-04, after the night of 10-03: four launch pools 6-15 min old, -$231, the stop tripped again): no copy in a
+# pool younger than this. 10 days of live closes: all -$12 / worst day -$167 / dd $430; >= 2 h +$188 / -$51 / $70; 3 h +$192 / -$51 / $66.
+min_pool_age_h = 2
+# LAUNCH CREATOR GUARD (owner 2026-10-03, after ASTRAL -$92.36 and HOODAGENTS -$61.12: pools minutes old, creator still in): in a
+# pool under launch_cap_h hours old whose creator (its first LP) has not pulled liquidity, the copy goes in at this fraction (0 = skip).
+# 7 days of live closes: those copies -$28.70 on 121; lp tune downside to confirm the fraction
+launch_creator_frac = 0.5     # 0.25 -> 0.5 2026-10-03: lp tune downside - 1/4 drawdown $167 vs $153 live, 1/2 the same total, worst copy -$58 vs -$68
+# SMART EXIT (owner 2026-10-01, after the ZIP copy sold 954,240 ZIP into its own drained pool for $1.06): an exit quotes the token's
+# hookless USDG / ETH pools (lp_heat.json routes) and sells where the most comes back; Relay's quote is logged beside it (route_shadow)
+smart_exit = true
+# RELAY EXIT (owner 2026-10-02): Relay is quoted IN PARALLEL with those pools at the exit, and sells when it beats the best pool by
+# more than relay_margin_usd (+ its approve's gas the first time per token). route_shadow on the losers of 10-02: Relay above our
+# best pool on 5 of 5 (+$31); 91 exits replayed at quote: +$50-60. Calldata checked before signing (core/exec/lp.relay_check),
+# a refused or reverting Relay sale falls back to our pools. tests/relayfork.py.
+relay_exit = true
+relay_margin_usd = 0.05
+# LAST SLOT (owner 2026-09-30): the last slot takes what is free when that is >= last_slot_frac x the base size.
+# MAKE ROOM (owner 2026-09-30, `lp tune downside`, 9 days, corrected replay): a copy that does not fit first closes the
+# open copy (any tier) earning the least fees over the last room_waste_min minutes, if <= room_waste_rate % of its size an
+# hour: +$89.64/day vs +$73.15, worst -$31.05 vs -$29.64, 7 of 9 days better (15-60 min, 0.25-0.5%/h: +$83 to +$90).
+# Closing slow copies when nothing waits for the capital ('dead') did not pay; an idle close judged once at 30 min lost.
+room_waste_min = 30
+room_waste_rate = 0.5
+last_slot_frac = 0.5
+qc_exclude = []   # wallets turned down by `./lpdesk qc` (never followed)
+# TREASURY (copydesk/treasury.py): ETH above gas_keep_usd goes back to USDG on the beat; conversions on the ETH/USDG pool
+# at conv_slippage_bps, stopped after two in a row fill more than max_conv_bps under mid.
+gas_keep_usd = 15.0
+conv_slippage_bps = 50
+max_conv_bps = 100
+# NATIVE-ETH POOLS (owner 2026-09-30): 4-11% of the followed wallets' mints, copied through the treasury. ON since the
+# anvil fork test (tests/copyfork.py: USDG bid, ETH range, ETH bid, tiers, stray token, exits, books to a cent) passed.
+native = true

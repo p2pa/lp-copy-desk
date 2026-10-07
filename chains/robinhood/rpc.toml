@@ -1,0 +1,29 @@
+# Endpoints for robinhood. Kept apart from chain.toml because nodes die and get swapped far more often
+# than strategy or risk parameters change. chain.py loads this as the [rpc] table.
+
+# PRIMARY = publicnode: 50 ms median round trip vs 136 ms for the official node (measured 2026-09-19, keep-
+# alive transport), and what the old desk moved to when its Alchemy key hit the monthly cap (alchemy.down).
+public = "https://robinhood-rpc.publicnode.com"
+# measured 2026-09-25 (100 ms blocks, eth_blockNumber every 100 ms vs the first newHeads): publicnode / blockmachine / drpc
+# p50 0 blocks behind; pocket p50 1 max 8, blxrbdn p90 16 max 72, the chain's own rpc 7 ALWAYS - out of the read/gate pool
+# FROM AWS us-east-2b (the desk's box since 2026-09-26): publicnode 23 ms / drpc 31 ms / blockmachine 118 ms, all 0-1
+# blocks behind; the chain's own rpc 11 ms but 7-10 blocks behind. blockmachine stays an archive, out of the hot rotation
+rotate = ["https://robinhood-rpc.publicnode.com", "https://robinhood.drpc.org"]
+send_urls = ["https://rpc.mainnet.chain.robinhood.com"]
+# a signed tx is ALSO pushed to these, in parallel, first acceptance wins (core/exec/tx.send). The nonce still comes
+# from send_urls only; a second copy is refused as already known, never sent twice.
+# the SEQUENCER itself first: FCFS ordering, no priority lane, so arrival time is queue position. From this box (Helsinki)
+# it is 121 ms warm RTT against 141 ms for the public rpc that forwards to it (2026-09-25); it takes eth_sendRawTransaction
+broadcast = ["https://sequencer.mainnet.chain.robinhood.com", "https://robinhood-rpc.publicnode.com", "https://rpc-robinhood.blockmachine.io", "https://robinhood.drpc.org"]
+# archive: blockmachine serves 30+ days of state (measured 2026-09-24); blxrbdn keeps about 7 days
+archive_urls = ["https://rpc-robinhood.blockmachine.io", "https://robinhood.rpc.blxrbdn.com"]
+# the desk's sockets; `hookbot robinhood node bridge on` puts rh-node's own ws first (rpc.local.toml)
+ws = ["wss://robinhood-rpc.publicnode.com"]
+hypersync = "https://4663.hypersync.xyz/query"
+log_pool = [
+  { url = "https://rpc.mainnet.chain.robinhood.com", fcap = 100000, ucap = 400 },
+  { url = "https://rpc-robinhood.blockmachine.io", fcap = 9999, ucap = 400 },
+]
+
+# Where a human reads a tx: fmt turns a hash on a Telegram card into a link (core/io.py adds it).
+explorer = "https://robinhoodchain.blockscout.com"

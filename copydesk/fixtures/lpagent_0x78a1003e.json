@@ -1,0 +1,199 @@
+{
+ "address": "0x78a1003e12f833f04ac176304f8d47720f4948ee",
+ "chain": "ROBINHOOD",
+ "captured": "2026-09-28 ~08:00 UTC",
+ "source": "app.lpagent.io/portfolio?address=0x78a1003e12f833f04ac176304f8d47720f4948ee&chain=ROBINHOOD (pasted by the owner)",
+ "open": [
+  {
+   "tokenId": 3378059,
+   "pair": "COPPERINU/USDG",
+   "age": "an hour",
+   "invested_eth": 0.1135,
+   "value_eth": 0.1094,
+   "fee_eth": 0.0063,
+   "fee_pct": 5.52,
+   "upnl": "+0.0021 ETH (+1.84%)",
+   "dpr_pct": 0.0,
+   "range_usdg": [
+    0.002,
+    0.0039
+   ]
+  },
+  {
+   "tokenId": 3376639,
+   "pair": "USDG/VAULT",
+   "age": "an hour",
+   "invested_eth": 0.1132,
+   "value_eth": 0.0778,
+   "fee_eth": 0.0097,
+   "fee_pct": 8.54,
+   "upnl": "+0.0257 ETH (+22.69%) - WRONG SIGN: value+fee-invested = -0.0257 (out of range, all VAULT)",
+   "dpr_pct": 544.52,
+   "range_usdg": [
+    0.0019,
+    0.0028
+   ]
+  }
+ ],
+ "open_totals": {
+  "value_eth": 0.13,
+  "claimed_fee_eth": 0.0,
+  "unclaimed_fee_eth": 0.002,
+  "invested_eth": 0.1318
+ },
+ "historical": [
+  {
+   "tokenId": 3365590,
+   "pair": "USDG/NOSH",
+   "age_h": 4.7,
+   "invested_eth": 0.1374,
+   "fee_eth": 0.0029,
+   "fee_pct": 2.1301,
+   "pnl_eth": 0.0031,
+   "pnl_pct": 2.2523,
+   "dpr_pct": 11.51
+  },
+  {
+   "tokenId": 3367966,
+   "pair": "USDG/PRIORS",
+   "age_h": 1.87,
+   "invested_eth": 0.1311,
+   "fee_eth": 0.0024,
+   "fee_pct": 1.8654,
+   "pnl_eth": 0.0033,
+   "pnl_pct": 2.5144,
+   "dpr_pct": 32.23
+  },
+  {
+   "tokenId": 3367423,
+   "pair": "USDG/FELS",
+   "age_h": 0.57,
+   "invested_eth": 0.0933,
+   "fee_eth": "<0.001",
+   "fee_pct": 0.9619,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.351,
+   "dpr_pct": 14.67
+  },
+  {
+   "tokenId": 3365724,
+   "pair": "USDG/PRIORS",
+   "age_h": 2.23,
+   "invested_eth": 0.1311,
+   "fee_eth": 0.0016,
+   "fee_pct": 1.2017,
+   "pnl_eth": 0.0015,
+   "pnl_pct": 1.1268,
+   "dpr_pct": 12.13
+  },
+  {
+   "tokenId": 3354565,
+   "pair": "USDG/HYDX",
+   "age_h": 0.99,
+   "invested_eth": 0.1109,
+   "fee_eth": "<0.001",
+   "fee_pct": 0.1931,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.8569,
+   "dpr_pct": 20.76
+  },
+  {
+   "tokenId": 3354602,
+   "pair": "USDG/CPU",
+   "age_h": 0.2,
+   "invested_eth": 0.1109,
+   "fee_eth": 0.0,
+   "fee_pct": 0.0,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.0595,
+   "dpr_pct": 7.26
+  },
+  {
+   "tokenId": 3354429,
+   "pair": "USDG/ERRAND",
+   "age_h": 0.06,
+   "invested_eth": 0.0739,
+   "fee_eth": 0.0,
+   "fee_pct": 0.0,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.0743,
+   "dpr_pct": 27.9
+  },
+  {
+   "tokenId": 3354302,
+   "pair": "USDG/ERRAND",
+   "age_h": 0.05,
+   "invested_eth": 0.074,
+   "fee_eth": 0.0,
+   "fee_pct": 0.0,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.0418,
+   "dpr_pct": 19.63
+  },
+  {
+   "tokenId": 3353835,
+   "pair": "USDG/ERRAND",
+   "age_h": 0.07,
+   "invested_eth": 0.0738,
+   "fee_eth": 0.0012,
+   "fee_pct": 1.5917,
+   "pnl_eth": 0.0059,
+   "pnl_pct": 7.9986,
+   "dpr_pct": 2800
+  },
+  {
+   "tokenId": 3348551,
+   "pair": "USDG/FOMUSE",
+   "age_h": 0.17,
+   "invested_eth": 0.0369,
+   "fee_eth": "<0.001",
+   "fee_pct": 1.4106,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 1.1352,
+   "dpr_pct": 157.68
+  },
+  {
+   "tokenId": 3345961,
+   "pair": "USDG/HYDX",
+   "age_h": 0.97,
+   "invested_eth": 0.1108,
+   "fee_eth": "<0.001",
+   "fee_pct": 0.7396,
+   "pnl_eth": "<0.001",
+   "pnl_pct": 0.8965,
+   "dpr_pct": 22.19
+  },
+  {
+   "tokenId": 3335712,
+   "pair": "USDG/CPU",
+   "age_h": 10.03,
+   "invested_eth": 0.1118,
+   "fee_eth": 0.0049,
+   "fee_pct": 4.4034,
+   "pnl_eth": 0.0016,
+   "pnl_pct": 1.4019,
+   "dpr_pct": 3.35
+  }
+ ],
+ "notes": [
+  "DPR = pnl_pct x 24 / age_h (NOSH: 2.2523 x 24 / 4.70 = 11.50)",
+  "values in ETH; PnL covers the liquidity leg only (LP Agent docs)",
+  "the historical table pasted is the first 12 of 1,174 positions (960 closed)"
+ ],
+ "wallet_totals": {
+  "positions_total": 1174,
+  "closed": 960,
+  "win_rate_pct": 80.72,
+  "avg_invested_eth": 0.05,
+  "fee_earned_eth": 1.77,
+  "total_profit_eth": 0.98,
+  "avg_monthly_profit_eth": 0.62,
+  "expected_value_eth": 0.0018,
+  "net_worth_eth": 0.42,
+  "holdings": {
+   "ETH": 0.0063,
+   "USDG": 543.55
+  }
+ },
+ "open_snapshot_2": "2026-09-28 ~10:30 UTC, pasted by the owner"
+}

@@ -1,0 +1,7 @@
+eth-abi>=6.0
+eth-account>=0.14
+eth-utils>=6.0
+eth-hash[pycryptodome]>=0.8
+pycryptodome>=3.23
+websockets>=17.0
+pillow>=12.0
