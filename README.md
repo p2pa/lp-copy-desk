@@ -157,7 +157,7 @@ lpdesk, cli.py         the command line
 copydesk/              the desk, the replay, the score, the pick, the history store, the treasury, the Telegram card
 core/                  the slice of the engine the desk uses: chain config, RPC, v4 tick maths, LP execution
                        (approve, swap, mint, exit on PositionManager / UniversalRouter), signing, Telegram
-discovery/, research/  wallet forensics (HyperSync) and pool features at entry
+discovery/, research/  wallet forensics (HyperSync), pool features at entry, and the pool-score studies (below)
 chains/robinhood/      chain.example.toml (every desk setting, with why), rpc.toml (public endpoints); var/ is state
 docs/                  the research behind it: LPWALLETS (finding wallets), LPAGENT, LPML (a model that did not beat
                        copying), DELTA (managed ladders)
@@ -165,6 +165,27 @@ tests/                 the fork tests
 ops/                   deploy.sh (a server in one command), supervise.sh (keeps the desk up while ops/LIVE exists), crontab.example
 setup.sh               a fresh box in one command
 ```
+
+## The pool score (research/, as found)
+
+The desk's replayed copies also fed a second idea: score POOLS, not wallets, by what everyone's replayed copies earned there,
+and trade the top pools without following anyone. These are the studies behind it, copied as they ran inside the larger bot
+(2026-10-02 to 10-07). Some import that bot's robot modules (`research/bidwall`, `research/robot`), which are not in this repo:
+read them as the record of the work, not as tools that run here.
+
+| | |
+|---|---|
+| `poolscore.py` | the score: (mean - SE) x copies a day of a pool's replayed copies, trailing 1 day |
+| `scoresvc.py` | the service that published it every 15 min, sealed snapshots (an hourly paper recipe traded on it) |
+| `persist.py` | does winning persist? wallets and pools, window A vs B, rank correlation with an interval |
+| `decay.py` | how fresh the score has to be (1-24 h refresh) |
+| `capacity.py` | per-copy return by the copy's share of in-range liquidity |
+| `payscore.py` | the same score from what pools really paid their LPs, no replay |
+| `lpfactor.py`, `lpfeat.py` | pool factors (volatility, waking up) and the residual test for new features |
+| `squadscore.py`, `launch.py` | the squad's own copies as a score; who is in a young pool |
+
+The outcome, for the record: the hourly pool-score recipe made +40 % on a $1,000 paper account over the same days a
+quote-only bid-wall robot (no wallets, no score) made +99 %; it was retired with the desk.
 
 ## Scope
 
