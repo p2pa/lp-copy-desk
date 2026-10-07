@@ -1,5 +1,5 @@
 # lp-copy-desk schedule (UTC). Replace /path/to/lp-copy-desk. `crontab -e` and paste what you want.
-# the live desk: restarted within a minute if it dies (touch ops/PAUSE to hold it)
+# the live desk: started and kept running ONLY while ops/LIVE exists (touch ops/PAUSE holds restarts)
 * * * * * /path/to/lp-copy-desk/ops/supervise.sh
 # the LP history store: new blocks every minute (every replay and the desk's cold-pool / exit-route tables read it)
 * * * * * cd /path/to/lp-copy-desk && flock -n /tmp/lpdesk-hist.lock timeout 290 ./lpdesk hist ingest >> chains/robinhood/var/lp/hist.log 2>&1

@@ -5,6 +5,8 @@ stays parseable, so a script or an agent can chain calls: `./lpdesk status --jso
 environment variable LIVE_OK=yes; without both the desk prices, decides and logs, but signs nothing.
 
 SET UP
+  setup [--yes] [--cron] [--backfill DAYS]   everything a fresh install needs: config, wallet, Telegram, cron, doctor
+  wallet [new]                 the desk wallet's address and balances; `new` creates one (never overwrites)
   init                         chains/<chain>/chain.toml from the example (once) and the var/ folders
   doctor                       config, wallet file, endpoints, history store, Telegram: what is missing, before anything runs
   smoke                        every module's offline selftest (no network, no keys)
@@ -89,7 +91,7 @@ def cmd_init(name, f):
 def cmd_doctor(name, f):
     """What the desk needs, checked one by one: each line OK or what to do."""
     rows = []
-    add = lambda ok, what, fix='': rows.append((ok, what, fix))
+    add = lambda ok, what, fix='', optional=False: rows.append((ok if not optional or ok else None, what, fix))
     try:
         c = _load(name)
         add(True, 'config chains/%s/chain.toml' % name)
@@ -113,12 +115,95 @@ def cmd_doctor(name, f):
     except Exception as e:
         add(False, 'endpoint %s' % c.rpc_url, str(e)[:120])
     hist = os.path.join(c.var, 'lphist.db')
-    add(os.path.exists(hist), 'history store %s' % hist, '`./lpdesk hist backfill 10` (then cron `hist ingest` every minute)')
-    add(os.path.exists(c.tg_config), 'telegram %s' % c.tg_config, 'optional: {"token": "...", "chat_id": "..."}; without it nothing is posted')
+    add(os.path.exists(hist) and os.path.getsize(hist) > 10 ** 7, 'history store %s (%.0f MB)' % (hist, os.path.getsize(hist) / 1e6 if os.path.exists(hist) else 0),
+        '`./lpdesk hist backfill 10` (then cron `hist ingest` every minute)')
+    live = os.path.exists(os.path.join(ROOT, 'ops', 'LIVE'))
+    add(live, 'ops/LIVE: the supervisor runs the live desk', '`touch ops/LIVE` when the wallet is funded and the squad is picked', True)
+    add(os.path.exists(c.tg_config), 'telegram %s' % c.tg_config, 'optional: {"token": "...", "chat_id": "..."}; without it nothing is posted', True)
     from discovery import scout
-    add(os.path.exists(scout.HS_TOKEN), 'hypersync token %s' % scout.HS_TOKEN, 'optional: wallet forensics (envio.dev token)')
-    add(os.environ.get('LIVE_OK') == 'yes', 'LIVE_OK=yes in this environment', 'only the live daemon needs it')
-    return dict(ok=all(ok for ok, _, _ in rows[:4]), rows=rows), ['%-4s %s%s' % ('OK' if ok else 'FIX', w, '' if ok else '  -> ' + x) for ok, w, x in rows]
+    add(os.path.exists(scout.HS_TOKEN), 'hypersync token %s' % scout.HS_TOKEN, 'optional: wallet forensics (envio.dev token)', True)
+    add(os.environ.get('LIVE_OK') == 'yes', 'LIVE_OK=yes in this environment', 'only the live daemon needs it (ops/supervise.sh sets it)', True)
+    return dict(ok=all(ok is not False for ok, _, _ in rows), rows=rows), ['%-4s %s%s' % ({True: 'OK', False: 'FIX', None: '--'}[ok], w, '' if ok else '  -> ' + x)
+                                                                         for ok, w, x in rows]
+
+
+def cmd_wallet(name, f, a=()):
+    """wallet [new]: the desk wallet's address and balances; `new` creates it (a fresh key, mode 600, never overwrites)."""
+    c = _load(name)
+    nm = c.cfg['lp']['wallet']
+    w = json.load(open(c.wallet_file)) if os.path.exists(c.wallet_file) else {}
+    if 'new' in a:
+        if nm in w:
+            return dict(ok=False, address=w[nm]['address']), ['%s exists (%s): never overwritten' % (nm, w[nm]['address'])]
+        from eth_account import Account
+        acct = Account.create()
+        w[nm] = dict(address=acct.address, key=acct.key.hex())
+        os.makedirs(os.path.dirname(c.wallet_file), exist_ok=True)
+        tmp = c.wallet_file + '.tmp'
+        with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as fh:
+            json.dump(w, fh, indent=1)
+        os.replace(tmp, c.wallet_file)
+        return dict(created=nm, address=acct.address), ['created %s %s in %s (mode 600). Back the key up: it is the only copy.' % (nm, acct.address, c.wallet_file),
+                                                       'fund it with USDG (the book) and ~$5 of ETH (gas) on Robinhood Chain']
+    if nm not in w:
+        return dict(ok=False), ['no %s in %s: `./lpdesk wallet new` creates one' % (nm, c.wallet_file)]
+    from core.exec import lp as X
+    ad = w[nm]['address']
+    u, e = X.balance(c, X.usdg(c), ad) / 1e6, X.balance(c, X.NATIVE, ad) / 1e18
+    return dict(wallet=nm, address=ad, usdg=u, eth=e), ['%s %s: $%.2f USDG, %.6f ETH' % (nm, ad, u, e)]
+
+
+CRON_MARK = '# >>> lp-copy-desk >>>'
+
+
+def cron_block():
+    """ops/crontab.example with this checkout's path, between markers (so a re-run replaces it, never duplicates it)."""
+    lines = [l.replace('/path/to/lp-copy-desk', ROOT) for l in open(os.path.join(ROOT, 'ops', 'crontab.example')) if l.strip() and not l.startswith('#')]
+    return '%s\n%s%s\n' % (CRON_MARK, ''.join(lines), CRON_MARK.replace('>>>', '<<<'))
+
+
+def cmd_setup(name, f, a=()):
+    """setup [--yes] [--cron] [--backfill DAYS]: everything a fresh install needs, in order, asking only what it cannot know.
+    --yes answers every question with its default (no Telegram, a new wallet if there is none); --cron installs the schedule
+    (ops/crontab.example with this path) into the user's crontab, replacing an earlier lp-copy-desk block."""
+    import subprocess
+    out = []
+    yes = '--yes' in a
+    ask = (lambda q, d='': d) if yes or not sys.stdin.isatty() else (lambda q, d='': input('%s%s: ' % (q, ' [%s]' % d if d else '')).strip() or d)
+    out += cmd_init(name, f)[1]
+    c = _load(name)
+    nm = c.cfg['lp']['wallet']
+    have = os.path.exists(c.wallet_file) and nm in json.load(open(c.wallet_file))
+    if not have:
+        if ask('create a new desk wallet %s? (y/n)' % nm, 'y').lower().startswith('y'):
+            out += cmd_wallet(name, f, ['new'])[1]
+        else:
+            out.append('no wallet: put {"%s": {"address": "0x..", "key": "0x.."}} in %s (mode 600)' % (nm, c.wallet_file))
+    else:
+        out.append('wallet %s: kept (%s)' % (nm, c.wallet_file))
+    if not os.path.exists(c.tg_config):
+        tok = ask('Telegram bot token for the desk\'s cards (empty = none)', '')
+        if tok:
+            chat = ask('Telegram chat id (empty = learned from the first message you send the bot)', '')
+            os.makedirs(os.path.dirname(c.tg_config), exist_ok=True)
+            with open(os.open(c.tg_config, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w') as fh:
+                json.dump(dict(token=tok, **(dict(chat_id=chat) if chat else {})), fh)
+            out.append('telegram: %s' % c.tg_config)
+    days = next((a[i + 1] for i, x in enumerate(a) if x == '--backfill' and i + 1 < len(a)), None)
+    if days:
+        out.append('history store: backfilling %s days (hours on public endpoints)...' % days)
+        from copydesk import lphist
+        lphist.backfill(c, float(days), log=lambda m: print(m, flush=True))
+    if '--cron' in a:
+        cur = subprocess.run(['crontab', '-l'], capture_output=True, text=True).stdout
+        if CRON_MARK in cur:
+            cur = cur[:cur.index(CRON_MARK)] + cur[cur.index(CRON_MARK.replace('>>>', '<<<')) + len(CRON_MARK) + 1:]
+        subprocess.run(['crontab', '-'], input=cur.rstrip('\n') + '\n' + cron_block(), text=True, check=True)
+        out.append('cron: the lp-copy-desk schedule is installed (`crontab -l`); `touch ops/PAUSE` holds the desk')
+    else:
+        out.append('cron: not installed (`./lpdesk setup --cron`, or paste ops/crontab.example)')
+    out += [''] + cmd_doctor(name, f)[1]
+    return dict(ok=True), out
 
 
 def cmd_smoke(name, f):
@@ -126,7 +211,7 @@ def cmd_smoke(name, f):
     out, bad = [], 0
     mods = ['core.amm', 'core.chain', 'core.events', 'core.fmt', 'core.exec.lp', 'core.exec.tx', 'core.lpbook', 'core.trace',
             'copydesk.lpfollow', 'copydesk.lpcopy', 'copydesk.lpdb', 'copydesk.lphist', 'copydesk.lpopt', 'copydesk.lpfind',
-            'copydesk.treasury', 'copydesk.lpcard', 'copydesk.lplive', 'copydesk.lpqc']
+            'copydesk.treasury', 'copydesk.lpcard', 'copydesk.lplive', 'copydesk.lpqc', 'copydesk.lpwatch']
     for m in mods:
         try:
             mod = importlib.import_module(m)
@@ -520,6 +605,8 @@ def main(argv=None):
         with contextlib.redirect_stdout(sys.stderr) if f.json else contextlib.nullcontext():
             if sub in ('init', 'doctor', 'smoke'):
                 data, lines = {'init': cmd_init, 'doctor': cmd_doctor, 'smoke': cmd_smoke}[sub](f.chain, f)
+            elif sub in ('setup', 'wallet'):
+                data, lines = {'setup': cmd_setup, 'wallet': cmd_wallet}[sub](f.chain, f, argv[1:])
             else:
                 data, lines = _lp_desk(_load(f.chain), sub, argv, f)
     except SystemExit:

@@ -11,3 +11,5 @@ chains/*/var/
 wallets*.json
 telegram*.json
 *.token
+ops/LIVE
+ops/PAUSE

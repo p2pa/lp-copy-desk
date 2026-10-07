@@ -6,6 +6,10 @@ copies the squad's new positions live: same pool, same range, your size. It exit
 
 Everything is driven from one command line, `./lpdesk`, and every command also speaks `--json`.
 
+![./lpdesk watch: the live desk full screen - book, 24 h P&L, open copies against their ranges, the wallets it follows, the event feed](docs/img/watch.png)
+
+<sub>`./lpdesk watch` on the live desk (2026-10-07). It's realtime off the chain's websocket: a swap in one of our pools re-values that copy at once, and a followed wallet's mint is in the feed before the desk has copied it. Wallets always show as `0x` plus 4 hex.</sub>
+
 This code ran live with real money from 2026-09-28 to 2026-10-07 as part of a larger private bot. It is extracted here
 whole, with its tests and the backtests behind every setting.
 
@@ -58,18 +62,18 @@ The desk's checks before a copy include:
 ## Install
 
 ```sh
-git clone <this repo> lp-copy-desk && cd lp-copy-desk
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-./lpdesk init        # writes chains/robinhood/chain.toml from the example (gitignored)
-./lpdesk smoke       # every module's offline selftest
-./lpdesk doctor      # what is still missing
+git clone https://github.com/p2pa/lp-copy-desk && cd lp-copy-desk
+./setup.sh            # venv + packages, then `./lpdesk setup`: config, a new desk wallet, Telegram (optional), doctor
 ```
 
-Outside the repo, in `~/.config/lp-copy-desk/` (none of these are ever committed):
-- `wallets.json`: `{"lp-1": {"address": "0x..", "key": "0x.."}}`, mode 600. Use a wallet that holds only what the desk may lose.
-- `telegram.json` (optional): `{"token": "...", "chat_id": "..."}` for the desk's cards.
-- `hypersync.token` (optional): an envio.dev HyperSync token, used by wallet forensics.
-- `rpc.url` (optional): a keyed endpoint, read before the public ones in `chains/robinhood/rpc.toml`.
+`./setup.sh --yes --cron` asks nothing (a new wallet if there is none, no Telegram) and installs the schedule into your
+crontab. Installing the schedule never starts trading: the live desk runs only once `ops/LIVE` exists (below).
+
+Python 3.11+ is needed. Everything private lives outside the repo in `~/.config/lp-copy-desk/`, mode 600, and is never committed:
+- `wallets.json`: `./lpdesk wallet new` makes it. Use a wallet that holds only what the desk may lose.
+- `telegram.json` (optional): `{"token": ..., "chat_id": ...}`.
+- `hypersync.token` (optional): an envio.dev token, for wallet forensics.
+- `rpc.url` (optional): a keyed endpoint, read before the public ones.
 
 ## First run
 
@@ -78,11 +82,38 @@ Outside the repo, in `~/.config/lp-copy-desk/` (none of these are ever committed
 ./lpdesk nightly --dry           # discover, replay, score: who would it pick?
 ./lpdesk pick --apply            # write the squad into chain.toml
 ./lpdesk run                     # the desk WITHOUT --go: it hears, decides and logs, signs nothing
-LIVE_OK=yes ./lpdesk run --go    # live. Fund the wallet with USDG and a little ETH first
+./lpdesk wallet                  # fund the address it shows: USDG for the book, ~$5 of ETH for gas
+touch ops/LIVE                   # live: the supervisor (cron, every minute) starts `run --go` with LIVE_OK=yes
 ```
 
-Then schedule it: `ops/crontab.example` has the minute ingest, the hourly repick, the nightly, the weekly checks, and
-`ops/supervise.sh`, which restarts the desk if it dies.
+## Run it on a server (AWS or anywhere with ssh)
+
+Latency matters for a copy desk: the sooner your mint lands after the leader's, the closer your fill is to theirs.
+Robinhood Chain's sequencer sits in AWS us-east-2. From a box there, the sequencer was 2.1 ms away, against 113 ms from
+Helsinki, and blocks arrived 41-124 ms earlier (measured 2026-09-26). The desk ran on a `t3.small` (2 vCPU, 2 GB, about
+$15 a month) beside its own chain node. There, copies landed about 2 blocks after the leader; from Europe it was
+about 33 blocks.
+
+```sh
+# 1. a box: Ubuntu 24.04 in us-east-2, an encrypted root volume (the wallet key rests on it), ssh only from your IP
+aws ec2 run-instances --region us-east-2 --instance-type t3.small --image-id <ubuntu-24.04-ami> --key-name <your-key> \
+  --security-group-ids <sg-ssh-from-your-ip> --block-device-mappings '[{"DeviceName":"/dev/sda1","Ebs":{"Encrypted":true,"VolumeSize":30}}]'
+ssh ubuntu@<ip> 'sudo apt-get update -q && sudo apt-get install -yq python3-venv rsync'
+
+# 2. the desk on it: code, your chain.toml, setup and the schedule, in one command
+ops/deploy.sh ubuntu@<ip>                 # a fresh desk there, with its own new wallet
+ops/deploy.sh ubuntu@<ip> --history       # ... and this box's history store, so it does not rebuild it for hours
+ops/deploy.sh ubuntu@<ip> --move --live   # MOVE a running desk: wallet, book, open copies and history go there, then live
+
+# 3. from your laptop
+ssh -t ubuntu@<ip> 'cd lp-copy-desk && ./lpdesk watch'
+ssh ubuntu@<ip> 'cd lp-copy-desk && ./lpdesk status --json'
+```
+
+`--move` refuses while the desk still runs here: one wallet has one signer, or two desks race for its nonces. Stop it here
+first (`rm ops/LIVE`, then kill its PID; SIGTERM is graceful). Re-running `ops/deploy.sh` updates the code. The box's own
+state (`chains/<chain>/var/`) is never overwritten unless you pass `--move`. Code reaches a running desk only when you deploy, never by
+itself, so a half-edited file cannot reach a desk that its supervisor would restart.
 
 ## Commands
 
@@ -90,6 +121,7 @@ Then schedule it: `ops/crontab.example` has the minute ingest, the hourly repick
 
 | | |
 |---|---|
+| `setup`, `doctor`, `wallet [new]` | install, check, the desk wallet |
 | `status` | every open copy checked against its leader and the chain, the record, the exit sales |
 | `watch` | full screen and live |
 | `log [N\|tokenId\|SYM\|0x..\|skips H\|errors H]` | the desk's own records, one copy at a time |
@@ -102,7 +134,7 @@ Then schedule it: `ops/crontab.example` has the minute ingest, the hourly repick
 
 ## Safety
 
-- Nothing signs without `--go` AND `LIVE_OK=yes` in the environment.
+- Nothing signs without `--go` AND `LIVE_OK=yes` in the environment, and the supervisor runs the desk only while `ops/LIVE` exists.
 - `./lpdesk stop` writes the desk's STOP file: no new copies. The desk keeps running so open copies still exit with their leaders.
 - `stop_drawdown` pauses copying for `stop_pause_h` hours after a drawdown from the realized high-water mark.
 - The fork tests run every write path against an anvil fork. The fork has a private chain id (real + 1,000,000), only local URLs, and throwaway keys, so a signature made there can never reach the real chain.
@@ -130,7 +162,8 @@ chains/robinhood/      chain.example.toml (every desk setting, with why), rpc.to
 docs/                  the research behind it: LPWALLETS (finding wallets), LPAGENT, LPML (a model that did not beat
                        copying), DELTA (managed ladders)
 tests/                 the fork tests
-ops/                   crontab.example, supervise.sh
+ops/                   deploy.sh (a server in one command), supervise.sh (keeps the desk up while ops/LIVE exists), crontab.example
+setup.sh               a fresh box in one command
 ```
 
 ## Scope

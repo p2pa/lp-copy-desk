@@ -12,6 +12,8 @@ they were (`core/`, `copydesk/`), so a module's docstring may still mention `hoo
 ## Commands
 
 ```
+./setup.sh [--yes] [--cron]   a fresh box: venv, packages, config, wallet, schedule, doctor
+ops/deploy.sh <ssh-host> [--history] [--move] [--live]   the desk onto a server (AWS us-east-2 is beside the sequencer)
 ./lpdesk smoke          offline selftests - run after any change
 ./lpdesk doctor         what the install is missing
 ./lpdesk status --json  the desk, machine-readable (every command takes --json; stdout is then only the JSON)
@@ -36,8 +38,9 @@ A change to anything that signs (core/exec, copydesk/lpfollow, copydesk/treasury
 2. **Name followed wallets by their ROLE:** main (`leader`), bench or filler. "leader" is only the generic word for the wallet a copy follows.
 3. **Keys never enter the repo or the context.** They live in `~/.config/lp-copy-desk/wallets.json` (mode 600). Do not print, copy or commit them. `.gitignore` covers `chain.toml`, `var/`, wallets, tokens.
 4. **One signer per wallet.** Two processes on one key race for nonces. Never run a second `run --go` on the same wallet.
-5. **Stop is not kill.** `./lpdesk stop` means no new copies; open copies must still exit with their leaders, so the process keeps running. To end the process, kill it by PID (SIGTERM is graceful: the entry or exit in progress finishes and is saved). `ops/supervise.sh` restarts it within a minute unless `ops/PAUSE` exists.
-6. **A setting's comment is its evidence.** When you change a knob in `chains/robinhood/chain.toml`, write the backtest numbers beside it, the way the others are written.
+5. **Live is a file.** The supervisor (`ops/supervise.sh`, cron) runs the desk only while `ops/LIVE` exists; installing the schedule never starts trading.
+6. **Stop is not kill.** `./lpdesk stop` means no new copies; open copies must still exit with their leaders, so the process keeps running. To end the process, kill it by PID (SIGTERM is graceful: the entry or exit in progress finishes and is saved). `ops/supervise.sh` restarts it within a minute unless `ops/PAUSE` exists.
+7. **A setting's comment is its evidence.** When you change a knob in `chains/robinhood/chain.toml`, write the backtest numbers beside it, the way the others are written.
 
 ## Where things are
 
